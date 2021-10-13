@@ -107,32 +107,47 @@ namespace Faker
             {
                 return null;
             }
-            if (instance == null) return null;
+            if (instance == null)
+            {
+                if (type.IsValueType) instance = Activator.CreateInstance(type);
+                return instance;
+            }
             foreach (var field in type.GetFields())
             {
                 if (!field.IsPublic) continue;
-                context.Target = field.FieldType;
-                var customGenerator = _fakerConfig.GetGenerator(type, field.Name);
-                if (customGenerator != null)
+                try
                 {
-                    if (blacklist.Contains(customGenerator)) continue;
-                    field.SetValue(instance, customGenerator.Generate(context));
+                    context.Target = field.FieldType;
+                    var customGenerator = _fakerConfig.GetGenerator(type, field.Name);
+                    if (customGenerator != null)
+                    {
+                        if (blacklist.Contains(customGenerator)) continue;
+                        field.SetValue(instance, customGenerator.Generate(context));
+                    }
+                    else field.SetValue(instance, Create(field.FieldType));
+                } catch (Exception)
+                {
+                    // Something went wrong => ignore
                 }
-                else field.SetValue(instance, Create(field.FieldType));
             }
 
             foreach (var prop in type.GetProperties())
             {
                 if (!prop.CanWrite) continue;
-                context.Target = prop.PropertyType;
-                var customGenerator = _fakerConfig.GetGenerator(type, prop.Name);
-                if (customGenerator != null)
+                try { 
+                    context.Target = prop.PropertyType;
+                    var customGenerator = _fakerConfig.GetGenerator(type, prop.Name);
+                    if (customGenerator != null)
+                    {
+                        if (blacklist.Contains(customGenerator)) continue;
+                        prop.SetValue(instance, customGenerator.Generate(context));
+                    }
+                    else prop.SetValue(instance, Create(prop.PropertyType));
+                } catch (Exception)
                 {
-                    if (blacklist.Contains(customGenerator)) continue;
-                    prop.SetValue(instance, customGenerator.Generate(context));
+                    // Something went wrong => ignore
                 }
-                else prop.SetValue(instance, Create(prop.PropertyType));
-            }
+        }
             _generationStack.Pop();
             return instance;
         }
