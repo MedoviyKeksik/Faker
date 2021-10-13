@@ -1,4 +1,5 @@
 ﻿using Faker;
+using Faker.FakerContext;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -10,9 +11,9 @@ namespace DefaultGenerators
     [Generate(typeof(float))]
     public class FloatGenerator : IGenerator
     {
-        public object Generate()
+        public object Generate(IFakerContext randomProvider)
         {
-            return (float)2.0;
+            return (float)randomProvider.GetDouble();
         }
     }
 }

@@ -1,4 +1,6 @@
-﻿using System;
+﻿using Faker;
+using Faker.FakerContext;
+using System;
 
 namespace SampleApp
 {
@@ -6,6 +8,15 @@ namespace SampleApp
     {
         public Sample() { }
         public double value;
+        public Sample sample;
+    }
+
+    class CustomIntGenerator : IGenerator
+    {
+        public object Generate(IFakerContext randomProvider)
+        {
+            return 5;
+        }
     }
     class Program
     {

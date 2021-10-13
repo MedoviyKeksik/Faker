@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Faker.FakerContext;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -34,14 +35,20 @@ namespace Faker
         }
 
         private readonly FakerConfig _fakerConfig;
+        private IFakerContext _random;
+        private Stack<Type> _generationStack;
         public Faker()
         {
             _fakerConfig = new FakerConfig();
+            _generationStack = new Stack<Type>();
+            _random = new FakerContext.FakerContext();
         }
 
         public Faker(FakerConfig fakerConfig)
         {
             _fakerConfig = fakerConfig;
+            _generationStack = new Stack<Type>();
+            _random = new FakerContext.FakerContext();
         }
 
         public T Create<T>()
@@ -49,44 +56,70 @@ namespace Faker
             return (T)Create(typeof(T));
         }
 
-        private object Create(Type type)
+        internal object Create(Type type)
         {
             var generator = GetGenerator(type);
             if (generator != null)
             {
-                return generator.Generate();
+                return generator.Generate(_random);
             }
             object instance = null;
+            var blacklist = new SortedSet<IGenerator>();
             try
             {
                 var constructor = type.GetConstructors()
                 .Where(c => c.GetParameters().All(p => p.ParameterType != type))
                 .OrderByDescending(c => c.GetParameters().Length)
                 .Take(1).Single();
+                if (_generationStack.Contains(type)) throw new StackOverflowException("Cyclic dependency");
+                _generationStack.Push(type);
                 var parameters = constructor.GetParameters();
                 var generatedParams = new object[parameters.Length];
                 for (int i = 0; i < parameters.Length; i++)
                 {
                     var parameterType = parameters[i].ParameterType;
-                    generatedParams[i] = Convert.ChangeType(Create(parameterType), parameterType);
+                    var customGenerator = _fakerConfig.GetGenerator(type, parameters[i].Name);
+                    if (customGenerator != null && customGenerator.GetType().GetCustomAttribute<GenerateAttribute>().Type == parameterType)
+                    {
+                        blacklist.Add(customGenerator);
+                        generatedParams[i] = customGenerator.Generate(_random);
+                    }
+                    else
+                        generatedParams[i] = Create(parameterType);
                 }
                 instance = constructor.Invoke(generatedParams);
             } catch (InvalidOperationException)
             {
                 // No public constructors => Ignore
+            } catch (StackOverflowException)
+            {
+                // Cyclic dependency => Ignore
             }
             if (instance == null) return null;
             foreach (var field in type.GetFields())
             {
                 if (!field.IsPublic) continue;
-                field.SetValue(instance, Create(field.FieldType));
+                var customGenerator = _fakerConfig.GetGenerator(type, field.Name);
+                if (customGenerator != null)
+                {
+                    if (blacklist.Contains(customGenerator)) continue;
+                    field.SetValue(instance, customGenerator.Generate(_random));
+                }
+                else field.SetValue(instance, Create(field.FieldType));
             }
 
             foreach (var prop in type.GetProperties())
             {
                 if (!prop.CanWrite) continue;
-                prop.SetValue(instance, Create(prop.PropertyType));
+                var customGenerator = _fakerConfig.GetGenerator(type, prop.Name);
+                if (customGenerator != null)
+                {
+                    if (blacklist.Contains(customGenerator)) continue;
+                    prop.SetValue(instance, customGenerator.Generate(_random));
+                }
+                else prop.SetValue(instance, Create(prop.PropertyType));
             }
+            _generationStack.Pop();
             return instance;
         }
         private IGenerator GetGenerator(Type type) {

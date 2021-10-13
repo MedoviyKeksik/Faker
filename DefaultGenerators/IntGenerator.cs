@@ -1,4 +1,5 @@
 ﻿using Faker;
+using Faker.FakerContext;
 using System;
 
 namespace CustomGenerators
@@ -6,9 +7,9 @@ namespace CustomGenerators
     [Generate(typeof(int))]
     public class IntGenerator : IGenerator
     {
-        public object Generate()
+        public object Generate(IFakerContext randomProvider)
         {
-            return 1;
+            return randomProvider.GetInt();       
         }
     }
 }
