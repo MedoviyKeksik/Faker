@@ -9,7 +9,7 @@ namespace Faker
     public class Faker
     {
         private const string dllDirectory = "plugins";
-        private static Dictionary<Type, Object> _generators = new Dictionary<Type, object>(); 
+        private static Dictionary<Type, IGenerator> _generators = new Dictionary<Type, IGenerator>(); 
         static Faker()
         {
             try
@@ -20,20 +20,16 @@ namespace Faker
                     var assembly = Assembly.LoadFrom(dll);
                     foreach (var type in assembly.GetTypes())
                     {
-                        if (type.GetInterfaces().Any(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IGenerator<>)))
+                        var generateAttribute = type.GetCustomAttribute<GenerateAttribute>();
+                        if (generateAttribute != null)
                         {
-                            var generator = Activator.CreateInstance(type);
-                            var genericInterfaces = type.GetInterfaces().Where(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IGenerator<>));
-                            foreach (var i in genericInterfaces)
-                            {
-                                _generators.TryAdd(i.GetGenericArguments()[0], generator);
-                            }
+                            _generators.Add(generateAttribute.Type, (IGenerator)Activator.CreateInstance(type));
                         }
                     }
                 }
             } catch (DirectoryNotFoundException)
             {
-                // Directory not found => all ok
+                // Directory not found => Ignore
             }
         }
 
@@ -50,15 +46,55 @@ namespace Faker
 
         public T Create<T>()
         {
-            var generated = Generator<T>().Generate();
-            return generated;
+            return (T)Create(typeof(T));
         }
-        private IGenerator<T> Generator<T>() {
-            if (_generators.TryGetValue(typeof(T), out var generator))
+
+        private object Create(Type type)
+        {
+            var generator = GetGenerator(type);
+            if (generator != null)
             {
-                return (IGenerator<T>) generator;
+                return generator.Generate();
             }
-            throw new NotImplementedException();
+            object instance = null;
+            try
+            {
+                var constructor = type.GetConstructors()
+                .Where(c => c.GetParameters().All(p => p.ParameterType != type))
+                .OrderByDescending(c => c.GetParameters().Length)
+                .Take(1).Single();
+                var parameters = constructor.GetParameters();
+                var generatedParams = new object[parameters.Length];
+                for (int i = 0; i < parameters.Length; i++)
+                {
+                    var parameterType = parameters[i].ParameterType;
+                    generatedParams[i] = Convert.ChangeType(Create(parameterType), parameterType);
+                }
+                instance = constructor.Invoke(generatedParams);
+            } catch (InvalidOperationException)
+            {
+                // No public constructors => Ignore
+            }
+            if (instance == null) return null;
+            foreach (var field in type.GetFields())
+            {
+                if (!field.IsPublic) continue;
+                field.SetValue(instance, Create(field.FieldType));
+            }
+
+            foreach (var prop in type.GetProperties())
+            {
+                if (!prop.CanWrite) continue;
+                prop.SetValue(instance, Create(prop.PropertyType));
+            }
+            return instance;
+        }
+        private IGenerator GetGenerator(Type type) {
+            if (_generators.TryGetValue(type, out var generator))
+            {
+                return generator;
+            }
+            return null;
         }
     }
 }

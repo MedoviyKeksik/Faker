@@ -6,11 +6,12 @@ using System.Threading.Tasks;
 
 namespace Faker
 {
-    class DefaultGenerator : IGenerator
+    public class GenerateAttribute : Attribute
     {
-        public object Generate()
+        public GenerateAttribute(Type type)
         {
-            return null;
+            Type = type;
         }
+        public Type Type { get; set; }
     }
 }

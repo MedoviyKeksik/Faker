@@ -6,8 +6,8 @@ using System.Threading.Tasks;
 
 namespace Faker
 {
-    public interface IGenerator<T>
+    public interface IGenerator
     {
-        T Generate();
+        object Generate();
     }
 }

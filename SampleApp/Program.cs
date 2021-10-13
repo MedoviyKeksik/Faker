@@ -2,13 +2,17 @@
 
 namespace SampleApp
 {
+    class Sample
+    {
+        public Sample() { }
+        public double value;
+    }
     class Program
     {
         static void Main(string[] args)
         {
             Faker.Faker faker = new Faker.Faker();
-            Console.WriteLine(faker.Create<int>());
-            Console.WriteLine(faker.Create<float>());
+            Console.WriteLine(faker.Create<Sample>().value);
             Console.WriteLine("Fuck you!");
         }
     }

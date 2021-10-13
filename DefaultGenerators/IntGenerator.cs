@@ -3,9 +3,10 @@ using System;
 
 namespace CustomGenerators
 {
-    public class IntGenerator : IGenerator<int>
+    [Generate(typeof(int))]
+    public class IntGenerator : IGenerator
     {
-        public int Generate()
+        public object Generate()
         {
             return 1;
         }

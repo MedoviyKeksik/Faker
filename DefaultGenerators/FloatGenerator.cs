@@ -7,9 +7,10 @@ using System.Threading.Tasks;
 
 namespace DefaultGenerators
 {
-    public class FloatGenerator : IGenerator<float>
+    [Generate(typeof(float))]
+    public class FloatGenerator : IGenerator
     {
-        public float Generate()
+        public object Generate()
         {
             return (float)2.0;
         }
