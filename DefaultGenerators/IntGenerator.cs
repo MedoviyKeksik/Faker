@@ -7,9 +7,9 @@ namespace CustomGenerators
     [Generate(typeof(int))]
     public class IntGenerator : IGenerator
     {
-        public object Generate(IFakerContext randomProvider)
+        public object Generate(IFakerContext context)
         {
-            return randomProvider.GetInt();       
+            return context.GetInt();       
         }
     }
 }

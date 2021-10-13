@@ -10,7 +10,7 @@ namespace Faker
     public class Faker
     {
         private const string dllDirectory = "plugins";
-        private static Dictionary<Type, IGenerator> _generators = new Dictionary<Type, IGenerator>(); 
+        private static Dictionary<string, IGenerator> _generators = new Dictionary<string, IGenerator>(); 
         static Faker()
         {
             try
@@ -24,7 +24,7 @@ namespace Faker
                         var generateAttribute = type.GetCustomAttribute<GenerateAttribute>();
                         if (generateAttribute != null)
                         {
-                            _generators.Add(generateAttribute.Type, (IGenerator)Activator.CreateInstance(type));
+                            _generators.Add(generateAttribute.Type.Assembly + generateAttribute.Type.Namespace + generateAttribute.Type.Name, (IGenerator)Activator.CreateInstance(type));
                         }
                     }
                 }
@@ -35,20 +35,20 @@ namespace Faker
         }
 
         private readonly FakerConfig _fakerConfig;
-        private IFakerContext _random;
+        private IFakerContext context;
         private Stack<Type> _generationStack;
         public Faker()
         {
             _fakerConfig = new FakerConfig();
             _generationStack = new Stack<Type>();
-            _random = new FakerContext.FakerContext();
+            context = new FakerContext.FakerContext(this);
         }
 
         public Faker(FakerConfig fakerConfig)
         {
             _fakerConfig = fakerConfig;
             _generationStack = new Stack<Type>();
-            _random = new FakerContext.FakerContext();
+            context = new FakerContext.FakerContext(this);
         }
 
         public T Create<T>()
@@ -58,19 +58,20 @@ namespace Faker
 
         internal object Create(Type type)
         {
+            context.Target = type;
             var generator = GetGenerator(type);
             if (generator != null)
             {
-                return generator.Generate(_random);
+                return generator.Generate(context);
             }
             object instance = null;
             var blacklist = new SortedSet<IGenerator>();
             try
             {
                 var constructor = type.GetConstructors()
-                .Where(c => c.GetParameters().All(p => p.ParameterType != type))
-                .OrderByDescending(c => c.GetParameters().Length)
-                .Take(1).Single();
+                    .Where(c => c.GetParameters().All(p => p.ParameterType != type))
+                    .OrderByDescending(c => c.GetParameters().Length)
+                    .Take(1).Single();
                 if (_generationStack.Contains(type)) throw new StackOverflowException("Cyclic dependency");
                 _generationStack.Push(type);
                 var parameters = constructor.GetParameters();
@@ -78,11 +79,12 @@ namespace Faker
                 for (int i = 0; i < parameters.Length; i++)
                 {
                     var parameterType = parameters[i].ParameterType;
+                    context.Target = parameterType;
                     var customGenerator = _fakerConfig.GetGenerator(type, parameters[i].Name);
                     if (customGenerator != null && customGenerator.GetType().GetCustomAttribute<GenerateAttribute>().Type == parameterType)
                     {
                         blacklist.Add(customGenerator);
-                        generatedParams[i] = customGenerator.Generate(_random);
+                        generatedParams[i] = customGenerator.Generate(context);
                     }
                     else
                         generatedParams[i] = Create(parameterType);
@@ -99,11 +101,12 @@ namespace Faker
             foreach (var field in type.GetFields())
             {
                 if (!field.IsPublic) continue;
+                context.Target = field.FieldType;
                 var customGenerator = _fakerConfig.GetGenerator(type, field.Name);
                 if (customGenerator != null)
                 {
                     if (blacklist.Contains(customGenerator)) continue;
-                    field.SetValue(instance, customGenerator.Generate(_random));
+                    field.SetValue(instance, customGenerator.Generate(context));
                 }
                 else field.SetValue(instance, Create(field.FieldType));
             }
@@ -111,11 +114,12 @@ namespace Faker
             foreach (var prop in type.GetProperties())
             {
                 if (!prop.CanWrite) continue;
+                context.Target = prop.PropertyType;
                 var customGenerator = _fakerConfig.GetGenerator(type, prop.Name);
                 if (customGenerator != null)
                 {
                     if (blacklist.Contains(customGenerator)) continue;
-                    prop.SetValue(instance, customGenerator.Generate(_random));
+                    prop.SetValue(instance, customGenerator.Generate(context));
                 }
                 else prop.SetValue(instance, Create(prop.PropertyType));
             }
@@ -123,7 +127,7 @@ namespace Faker
             return instance;
         }
         private IGenerator GetGenerator(Type type) {
-            if (_generators.TryGetValue(type, out var generator))
+            if (_generators.TryGetValue(type.Assembly + type.Namespace + type.Name, out var generator))
             {
                 return generator;
             }

@@ -9,6 +9,6 @@ namespace Faker
 {
     public interface IGenerator
     {
-        object Generate(IFakerContext randomProvider);
+        object Generate(IFakerContext context);
     }
 }

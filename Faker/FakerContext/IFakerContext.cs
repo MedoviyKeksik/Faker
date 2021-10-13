@@ -8,6 +8,7 @@ namespace Faker.FakerContext
 {
     public interface IFakerContext
     {
+        public Type Target { get; set; }
         int GetInt();
         double GetDouble();
         void GetBytes(byte[] buffer);

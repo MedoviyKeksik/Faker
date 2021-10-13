@@ -10,6 +10,7 @@ namespace Faker.FakerContext
     {
         private Faker _faker;
         private Random _random;
+        public Type Target { get; set; }
         public FakerContext(Faker faker)
         {
             _faker = faker;

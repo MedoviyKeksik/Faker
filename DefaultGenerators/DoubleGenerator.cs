@@ -8,12 +8,12 @@ using System.Threading.Tasks;
 
 namespace DefaultGenerators
 {
-    [Generate(typeof(float))]
-    public class FloatGenerator : IGenerator
+    [Generate(typeof(double))]
+    public class DoubleGenerator : IGenerator
     {
         public object Generate(IFakerContext context)
         {
-            return (float)context.GetDouble();
+            return context.GetDouble();
         }
     }
 }
