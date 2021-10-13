@@ -9,6 +9,7 @@ namespace SampleApp
     {
         public Sample() { }
         public List<int> list;
+        public DateTime date;
     }
 
     [Generate(typeof(string))]
@@ -24,7 +25,7 @@ namespace SampleApp
         static void Main(string[] args)
         {
             Faker.Faker faker = new Faker.Faker();
-            Console.WriteLine(faker.Create<Sample>().list.Count);
+            Console.WriteLine(faker.Create<Sample>().date);
         }
     }
 }

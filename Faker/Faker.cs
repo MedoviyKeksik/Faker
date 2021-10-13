@@ -24,7 +24,14 @@ namespace Faker
                         var generateAttribute = type.GetCustomAttribute<GenerateAttribute>();
                         if (generateAttribute != null)
                         {
-                            _generators.Add(generateAttribute.Type.Assembly + generateAttribute.Type.Namespace + generateAttribute.Type.Name, (IGenerator)Activator.CreateInstance(type));
+                            try
+                            {
+                                _generators.Add(generateAttribute.Type.Assembly + generateAttribute.Type.Namespace + generateAttribute.Type.Name, (IGenerator)Activator.CreateInstance(type));
+                            }
+                            catch (ArgumentException)
+                            {
+                                // this type already exist => Ignore
+                            }
                         }
                     }
                 }
@@ -96,6 +103,9 @@ namespace Faker
             } catch (StackOverflowException)
             {
                 // Cyclic dependency => Ignore
+            } catch (TargetInvocationException)
+            {
+                return null;
             }
             if (instance == null) return null;
             foreach (var field in type.GetFields())
