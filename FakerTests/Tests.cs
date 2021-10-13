@@ -16,11 +16,6 @@ namespace FakerTests
         public A a;
     }
 
-    class C
-    {
-        
-    }
-
     class D
     {
         private D() { }
